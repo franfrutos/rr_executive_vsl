@@ -42,6 +42,7 @@ format:
     reference-doc: Input/apaquarto_reference.docx # apaquarto's template with single-spaced 10-pt footnotes and 9-pt table text
     filters:
       - filters/fig.lua # "Figure [1](#fig-x)[A]{.figletter}" -> "Figure 1A", as in vmac_selective
+      - filters/landscape.lua # Landscape page of Table 1 in Word
   apaquarto-pdf:
     filters:
       - filters/fig.lua

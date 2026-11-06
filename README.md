@@ -19,7 +19,7 @@ The project is organized into the following main sections:
 - **Scripts**: Includes the scripts used to load and preprocess the data and to run the analyses.
 - **Materials**: The PsychoPy task of the load group (`psychopy_task`, with its own README).
 - **_extensions**: Quarto extension used to render the manuscript (`rr_executive_manuscript.qmd`) in APA style (`apaquarto`).
-- **filters**: Lua filter that writes references such as "Figure 1A" in the manuscript.
+- **filters**: Lua filters that write references such as "Figure 1A" in the manuscript (`fig.lua`) and the landscape page of Table 1 in Word (`landscape.lua`).
 
 ##### Scripts Folder Structure #####
 
