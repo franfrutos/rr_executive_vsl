@@ -1,0 +1,9 @@
+# Python packages of the task (Python 3.10). Versions are those of PsychoPy
+# 2026.1.1 Standalone (Python 3.10.11, Windows 11), with which the task was tested.
+# run_task.bat installs them automatically when PsychoPy 2026.1.1 is not installed.
+psychopy==2026.1.1
+numpy==2.2.6
+pillow==11.3.0
+psychtoolbox==3.0.19.14
+pyglet==1.4.11
+wxPython==4.2.5

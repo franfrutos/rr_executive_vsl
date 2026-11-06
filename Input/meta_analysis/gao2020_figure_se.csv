@@ -1,0 +1,9 @@
+exp,load_condition,condition,se_ms
+1,low,HPDL,58.40
+1,low,LPDL,58.70
+1,high,HPDL,55.15
+1,high,LPDL,52.55
+2,none,HPDL,35.85
+2,none,LPDL,45.60
+2,load,HPDL,45.30
+2,load,LPDL,49.75

@@ -1,0 +1,33 @@
+{
+  "upload_type": "dataset",
+  "title": "Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report: Data, code, and materials",
+  "description": "<p>Data, analysis code, results, and task materials for the Stage 1 Registered Report \"Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report\". The repository includes the data of the control group (Vicente-Conesa et al., 2023), the statistics extracted for the meta-analysis, the scripts of the meta-analysis and the simulation-based power analysis, the cached results and figures, the PsychoPy task of the load group, and the Quarto source file of the manuscript. See README.md for the structure of the repository and how to reproduce the analyses.</p>",
+  "creators": [
+    {
+      "name": "Garre-Frutos, Francisco",
+      "affiliation": "Autonomous University of Madrid",
+      "orcid": "0000-0001-9810-186X"
+    }
+  ],
+  "keywords": [
+    "distractor suppression",
+    "statistical learning",
+    "working memory",
+    "executive load",
+    "dual task",
+    "registered report"
+  ],
+  "license": "cc-by-4.0",
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://osf.io/xtsa2/",
+      "relation": "isDerivedFrom"
+    },
+    {
+      "identifier": "https://osf.io/b8g2v/",
+      "relation": "isDerivedFrom"
+    }
+  ]
+}

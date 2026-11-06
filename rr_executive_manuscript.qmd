@@ -1,0 +1,348 @@
+---
+title: "Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report"
+shorttitle: "COUNTING ON SUPPRESSION"
+author:
+  - name: Francisco Garre-Frutos
+    orcid: 0000-0001-9810-186X
+    email: francisco.garre@uam.es
+    corresponding: true
+    affiliations:
+      - id: uam
+        name: Department of Basic Psychology, Faculty of Psychology, Autonomous University of Madrid, Madrid, Spain
+author-note:
+  status-changes:
+    affiliation-change: ~
+    deceased: ~
+  disclosures:
+    study-registration: "This Stage 1 Registered Report has been submitted to PCI Registered Reports. PCI RR will preregister the approved protocol on OSF at in-principle acceptance."
+    data-sharing: "The control data are available from Vicente-Conesa et al. (2023). The task program, the analysis code, the simulation outputs, and the reproducible workflow to generate this manuscript are available at https://doi.org/10.5281/zenodo.XXXXXXX (development version at https://github.com/franfrutos/rr_executive_vsl)."
+    financial-support: "This study was supported by grant PID2023-150830NB-I00, awarded to MAV, funded by MICIU/AEI/10.13039/501100011033 and FEDER, UE. FGF was supported by a postdoctoral contract funded by this grant."
+    conflict-of-interest: "The authors have no conflicts of interest to disclose."
+    authorship-agreements: "The authors used Claude Opus 5.5 (Anthropic) for copyediting and as a programming assistant, reviewed all its output, and take full responsibility for the content of this article."
+abstract: "Observers can learn to suppress the locations where salient distractors tend to appear, so that distractors at these locations are less likely to capture attention. This learned distractor suppression is thought to depend on an automatic mechanism that does not require working memory resources. However, previous dual-task studies in this literature have often asked participants to retain or manipulate information that was tested after search, which does not necessarily engage executive processes during learning. In the present study, we will test whether learning to suppress a distractor location depends on executive resources. To do so, participants will perform an additional singleton task while counting the targets that contain a given line orientation, a concurrent task integrated into the search itself. Because participants will decide on every trial whether to update the count, this task will engage executive processes while they learn where distractors tend to appear. We will compare this load group with a large no-load control group (*N* = 238) that performed the same task without any concurrent task [@vicenteconesa2023]. We hypothesise that the suppression effect will be smaller in the load group than in the control group (H1). Moreover, if this form of learning requires executive resources, the suppression effect could be absent in the load group (H2). The results will show whether learned distractor suppression is independent of executive resources, or whether previous null results reflect secondary tasks that left these resources available during search."
+keywords: [distractor suppression, statistical learning, working memory, executive load, dual task, registered report]
+floatsintext: true
+# Masked review: the title page shows no authors or affiliations, but keeps the
+# author note with the disclosures (Stage 1 status, AI use); no ORCID or
+# correspondence paragraph. The author data stay above.
+mask: false
+suppress-author: true
+suppress-affiliation: true
+suppress-orcid: true
+suppress-corresponding-paragraph: true
+numbered-lines: false
+suppress-title-page: false
+link-citations: true
+draft-date: false
+bibliography: refs.bib
+resources: "!output/figures/*" # Figures are embedded, so Quarto does not copy them
+lang: en
+format:
+  apaquarto-docx:
+    reference-doc: Input/apaquarto_reference.docx # apaquarto's template with single-spaced 10-pt footnotes and 9-pt table text
+    filters:
+      - filters/fig.lua # "Figure [1](#fig-x)[A]{.figletter}" -> "Figure 1A", as in vmac_selective
+  apaquarto-pdf:
+    filters:
+      - filters/fig.lua
+    documentmode: man
+    pdf-engine: xelatex
+    include-in-header:
+      text: |
+        % Restore APA indentation settings in the PDF output
+        \usepackage{indentfirst}
+        \setlength{\parindent}{0.5in}
+        \setlength{\parskip}{0pt}
+        % Single-spaced 8-pt tables, so that the study design table fits on one page,
+        % with extra space above each row so that rows are easy to tell apart
+        \usepackage{etoolbox}
+        \usepackage{placeins} % \FloatBarrier: floats placed before the references
+        \AtBeginEnvironment{longtable}{\linespread{1}\fontsize{8}{9.5}\selectfont\setlength{\extrarowheight}{5pt}}
+        % Single-spaced 10-pt footnotes
+        \makeatletter
+        \let\apaq@makefntext\@makefntext
+        \renewcommand\@makefntext[1]{\linespread{1}\fontsize{10}{12}\selectfont\apaq@makefntext{#1}}
+        \makeatother
+        \setlength{\footnotesep}{8.4pt}
+---
+
+```{r}
+#| label: setup-analysis-objects
+#| include: false
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+
+source("scripts/functions.R")
+
+ctrl <- load_analysis_objects("control_models")
+meta <- load_analysis_objects("meta_analysis")
+pow <- load_analysis_objects("power")
+sens <- load_analysis_objects("sensitivity")
+
+# Inline reporting helpers
+fmt <- function(x, digits = 1) sub("^-", "−", formatC(x, format = "f", digits = digits)) # typographic minus
+pct <- function(x, digits = 1) fmt(100 * x, digits)
+est_ci <- function(d, digits = 2) sprintf("%s, 95%% CrI [%s, %s]", fmt(d$median, digits), fmt(d$ci_lower, digits), fmt(d$ci_upper, digits))
+gci <- function(x) sprintf("$g_z$ = %s, 95%% CI [%s, %s]", fmt(x[["g"]], 2), fmt(x[["lo"]], 2), fmt(x[["hi"]], 2))
+n_load_min <- 140
+
+# Control group
+params <- ctrl$params
+params_time <- ctrl$params_time
+coef_se <- function(term) c(est = params$beta[[term]], se = sqrt(params$vcov_beta[term, term]))
+supp <- coef_se("conditionsuppression")
+n_control <- params$n_participants
+g_ctrl <- ctrl$g_ctrl
+g_wt <- ctrl$g_wt
+aw_ctrl <- ctrl$aw_ctrl
+
+# Meta-analysis
+mq <- function(analysis_label, q) filter(meta$meta_sum, analysis == analysis_label, quantity == q)
+m_low <- mq("primary", "lower")
+m_high <- mq("primary", "higher")
+m_mod <- mq("primary", "mod")
+m_tau <- mq("primary", "tau")
+meta_crit <- meta$meta_crit
+crit <- filter(meta_crit, analysis == "primary")
+crit_sens <- filter(meta_crit, analysis == "sensitivity")
+meta_r <- list(r = meta$r_within)
+gao_sd <- meta$gao_sd
+
+# Power of the confirmatory tests and of the outcome-neutral criteria
+power_conf <- pow$power_conf
+calib <- pow$calib
+es20 <- pow$es
+h2_bound <- pow$h2_bound
+h2_power <- filter(pow$h2, scenario == "no suppression in the load group")
+h2_t1_upper <- filter(pow$h2, scenario == "load suppression at the upper bound (type I error)")
+h2_t1_lower <- filter(pow$h2, scenario == "load suppression at the lower bound (type I error)")
+n_sim <- power_conf$nsim[1]
+p20 <- filter(power_conf, n_load == n_load_min)
+p20_max <- filter(power_conf, n_load == 160)
+h2_min <- filter(h2_power, n_load == n_load_min)
+h2_max <- filter(h2_power, n_load == 160)
+capt_power <- pow$capt_power
+count_row <- pow$count_row
+count_power <- count_row$power
+
+# Sensitivity of the exploratory analyses: minimum detectable effect, the
+# smallest grid value with power >= .90
+mde <- function(d, x) {
+  ok <- d[d$power >= .90, ]
+  ok[which.min(ok[[x]]), ]
+}
+mde_triple <- mde(sens$triple, "attenuation_pct")
+mde_aw <- mde(sens$aware, "attenuation_pct")
+```
+
+The visual environment usually contains far more information than we can process simultaneously. Thus, efficient goal-directed behaviour necessarily depends on selective attention mechanisms that filter out irrelevant stimuli to focus on those that are relevant to the current goals. Traditionally, selective attention has been understood as the result of an interaction between stimulus salience (bottom-up) and current task goals [top-down\; @posner1980]. However, a growing body of research suggests that previous experience may also play a major role in shaping how we prioritise information [@theeuwes2018] in ways that are not easily accommodated by the top-down versus bottom-up framework. These influences, often grouped under the term selection history, have been proposed to bias attention independently of the stimulus salience and the observer's current goals [@awh2012].
+
+Among the many facets of selection history, visual statistical learning (VSL) provides one of the clearest examples of how prior experience can shape attentional selection. VSL refers to the ability to extract statistical regularities from the environment and use this information to guide attentional selection more efficiently [@sherman2020; @turkbrowne2005]. Researchers have investigated VSL in the laboratory using a wide variety of visual search paradigms in which targets, distractors, or spatial configurations of the stimuli follow different statistical regularities. For instance, perhaps one of the earliest and most influential examples is contextual cueing [@chun1998], in which repeated spatial configurations facilitate target search by allowing observers to learn predictive relationships between the target and its surrounding context. Research conducted with other paradigms has shown that observers are also able to learn the probabilistic distribution of target locations, prioritising attention towards locations where targets are more likely to appear [e.g., @geng2005; @jiang2013].
+
+More recently, research has shown that observers can also learn to suppress the locations where salient distractors tend to appear, so that distractors at these locations are less likely to capture attention [@ferrante2018; @wang2018]. The additional singleton task [AST\; @theeuwes1992] has become the dominant paradigm for studying this form of distractor-location learning [see @theeuwes2022, for a review]. In a popular version of this task, participants are asked to find a shape singleton target (e.g., a diamond among circles or vice versa) while ignoring a salient colour singleton distractor (e.g., a red figure among green figures or vice versa) that captures attention, making visual search harder. Unknown to participants, the singleton distractor appears more frequently in one location (the high-probability distractor location, HPDL) than in the remaining locations, a manipulation that usually makes search easier when the distractor appears in the HPDL compared to low-probability distractor locations (LPDLs). Furthermore, participants are slower to find the target when it appears in the HPDL, suggesting they have learned to suppress attention towards the region of the screen more likely to contain the distractor.
+
+Distractor suppression is often considered automatic, a claim that rests on its apparent independence from both awareness and cognitive resources. Because this suppression is assumed to be learned incidentally, without instructing participants about the probabilistic distribution of distractors, it has often been interpreted as resulting from implicit learning [@golan2025]. Evidence for this claim typically comes from awareness tests administered after the visual search task. In these tests, participants are often first asked to report whether they noticed any regularity in the singleton distractor location and then asked to indicate the specific location where they believe the distractor appeared most frequently. Because participants often fail to identify the HPDL at above-chance levels [or because suppression is largely the same for participants who fail to identify it\; @gao2022], learning to suppress the distractor location has generally been interpreted as occurring without awareness [e.g., @failing2019; @gao2019; @wang2018; @zhang2019; @zhao2026]. This finding supports the conclusion that this form of attentional bias cannot be explained in terms of top-down control: If participants are unaware of the regularity driving their performance in the task, it is difficult to see how this bias could be driven by participants' goals. A different mechanism must be at work.
+
+However, recent evidence from other visual statistical learning paradigms suggests that this conclusion may depend critically on the sensitivity of the awareness measures employed [@gimenezfernandez2023b; @vadillo2016; @vadillo2020]. Similarly, for distractor suppression, @vicenteconesa2023 argued that traditional awareness tests may underestimate the explicit knowledge of participants who fail to identify the HPDL. To test this, they analysed not only whether participants correctly identified the HPDL, but also the pattern of incorrect responses. Although some participants could not identify the HPDL with precision, incorrect responses were not randomly distributed either: participants selected locations closer to the HPDL more frequently than more distant ones, suggesting partial but systematic knowledge of the underlying probability distribution. Overall, these findings indicate that participants possess more explicit knowledge than previously assumed, which calls into question the prevailing conclusion that distractor suppression does not depend on top-down attentional control.
+
+Beyond its independence from awareness, this form of learning has also been proposed to operate independently of working memory (WM) resources and executive control [@gao2019; @golan2025]. This claim stems from the idea that, if statistical learning is automatic, it should not depend on available cognitive resources [@moors2006]. The independence between WM resources and statistical learning dovetails with recent evidence that statistical learning can improve when participants are distracted [e.g., when they are mind-wandering\; @vekony2025] and is often stronger for participants with weaker executive function abilities [@pedraza2024], a pattern suggesting that disengaging top-down control may paradoxically enhance statistical learning [@janacsek2022; @smalle2022]. Despite this emerging picture, evidence regarding the relationship between WM and VSL, in particular, remains mixed across paradigms such as contextual cueing and location probability learning. Studies exploring this question usually attempt to exhaust WM by employing a concurrent task in which participants must retain some stimuli in memory while performing the visual search. While some studies suggest that VSL is largely resilient to WM load [@gao2019; @vicenteconesa2022; @vicenteconesa2024; @vickery2010; @won2015], others have reported impairments under demanding executive or visuospatial manipulations [@chen2019; @manginelli2012; @travis2013]. Particularly, @chen2019 is the only study we know of that shows that a VSL effect can be eliminated under high executive load (arithmetic operations), using a contextual cueing paradigm.
+
+To our knowledge, only two studies have compared the learned suppression of a distractor location in the AST under different levels of WM load [@gao2019; @vicenteconesa2024]. Both studies reported that the suppression effect was robust even under demanding dual-task conditions. In particular, @vicenteconesa2024 conducted three high-powered experiments manipulating either visuospatial or executive resources. In the first experiment, participants had to retain a sequence of dots during the search task (two in the low-load condition vs. four in the high-load condition) and compare them to a probe sequence after the search task. This visuospatial load did not affect the suppression effect. Importantly, in the second and third experiments, participants had to retain and operate with a sequence of three (low-load condition) or four (high-load condition) numbers, conceptually replicating the manipulation used by @chen2019. Based on that study, it was reasonable to expect that a concurrent executive task would similarly reduce the suppression effect in the AST. However, the suppression effect remained robust even under demanding executive load.
+
+Several possible explanations exist for why WM load did not affect the suppression effect in these studies. First, previous studies may have underestimated the amount of load required to effectively exhaust WM resources. For example, although visual WM capacity is usually estimated at about four items [@luck1997], individual differences in this capacity suggest that retaining the same number of items may impose different demands across participants [@vogel2004]. Therefore, previous manipulations may not have imposed a sufficiently demanding load across participants, leaving some residual WM resources available and potentially affecting the observed results. Second, and relatedly, although the secondary tasks employed in previous studies increased WM load, they might have imposed relatively little pressure on executive processes. Specifically, the executive tasks used by @vicenteconesa2024 required participants to maintain a sequence of numbers, operate with them, and finally perform a probe task. However, this design does not ensure that executive operations occur during the search task or, critically, during the specific stage of the trial where incidental learning takes place. In other words, participants were not required to continuously update task-relevant information while performing the visual search task.
+
+The distinction between maintaining and updating information may be theoretically important. Learning the distractor regularity requires accumulating information across trials, as the attentional priority of each location is gradually adjusted to how often the distractor appears there [@lin2021], a process that unfolds over hundreds of trials [@hanne2023; @yao2026]. If this form of learning draws on executive resources, a concurrent task that requires updating information during specific learning episodes should impair learning. Consistent with this possibility, an executive WM load, but not mere information maintenance, impairs the efficiency of visual search [@han2004], and keeping a running count during a sequence-learning task attenuates this kind of learning [@shanks2005]. However, a WM load need not necessarily reduce the processing of the distractor itself: whereas preventing attention from being directed to the distractor has been shown to eliminate distractor-location learning [@duncan2025; @golan2024], WM load can actually increase attention to distractors [@defockert2013; @lavie2005], which, in turn, might strengthen the suppression of their location [@failing2020]. Thus, null results in previous studies might reflect the type of demands they imposed, rather than a genuine independence of distractor-location learning from executive resources.
+
+## The Present Study
+
+To address these limitations, we will test whether distractor-location learning depends on executive resources using a demanding dual-task procedure directly integrated into the visual search task [similar to @shanks2005]. Specifically, participants will be required to track the number of targets containing either vertical or horizontal lines across short periods of 8, 10, or 12 trials, a running-count task commonly used to study the updating of information in WM, one of the core executive functions [@garavan1998; @miyake2000]. On each trial, participants will determine whether the target contains the relevant line orientation and update the count accordingly, so that, unlike in previous experiments, this updating occurs during the search itself throughout the learning phase. At the end of each period, they will verify the number of targets counted. Furthermore, this manipulation does not require participants to give an additional response on each trial, allowing the visual search procedure to remain essentially the same as in a control condition. Using this procedure, we will test a new group of participants on the AST under continuous executive load and compare them with a no-load control group from @vicenteconesa2023, who performed the same search task but without the concurrent task. Because this control group has a remarkably large sample size (*N* = `r n_control`), it provides a precise estimate of the suppression effect without load, allowing us to devote all new data collection to the load group, where we will implement the critical manipulation.
+
+We hypothesise that learning to suppress the HPDL depends on the executive resources taken up by the concurrent task. If so, the suppression effect (shorter response times [RTs] when the distractor appears in the HPDL than in the LPDLs) should be smaller in the load group than in the control group (H1). Moreover, if these resources are necessary for this form of learning, the suppression effect could even be absent in the load group, that is, practically equivalent to zero (H2). If the load reduces the suppression effect (H1), this would indicate that previous null results reflect the limitations of the secondary tasks used so far. In other words, distractor suppression would not be truly independent of executive resources. If suppression is absent in the load group (H2), this would further suggest that learning to suppress the HPDL requires these resources. In contrast, if suppression remains intact despite the continuous monitoring and updating demands of the task, this would provide stronger evidence that distractor-location learning is independent of executive resources. @tbl-design summarises both hypotheses and the two outcome-neutral criteria [@henderson2022], the tests that will evaluate them, and how each possible outcome will be interpreted.
+
+::: {.landscape}
+
+| Question | Hypothesis | Sampling plan | Analysis plan | Rationale for deciding the sensitivity of the test for confirming or disconfirming the hypothesis | Interpretation given different outcomes | Theory that could be shown wrong by the outcomes |
+|-------------|-----------|----------------|---------------|---------------|-----------------|----------|
+| H1. Does continuously updating information in WM during visual search reduce learned suppression of the HPDL? | The suppression effect (log RT, LPDL − HPDL; see Hypothesis Tests) will be smaller in the load group than in the control group. | We will recruit 160 participants in the load group, continuing until at least 140 meet the inclusion criteria. The control group includes `r n_control` participants [@vicenteconesa2023]. Simulations of the confirmatory linear mixed model (LMM) gave `r pct(p20$power, 0)`% (*N* = 140) and `r pct(p20_max$power, 0)`% (*N* = 160) power to detect a 20% attenuation of this effect in the control group. | LMM on log RT with Group, Condition (suppression and capture contrasts) and their interaction, plus by-participant random effects. The critical test is the Group × Suppression interaction (one-sided, $\alpha$ = .02). | The smallest effect of interest is a 20% attenuation of the control suppression effect, based on a meta-analysis of previous evidence (see Sample Size Rationale). | If the interaction is significant and negative (i.e., lower suppression in the load group), we will conclude that executive load attenuates suppression. If it is not significant, we will reject attenuations of 20% or more, with an error rate below 10%. Either conclusion requires meeting ON1 and ON2. | Distractor-location learning is automatic and independent of executive resources [@gao2019; @golan2025]. |
+| H2. Does continuously updating information in WM during visual search abolish learned suppression of the HPDL? | The suppression effect (log RT, LPDL − HPDL) in the load group will be practically equivalent to zero. | As for H1. Simulations gave `r pct(h2_min$power_h2, 0)`% (*N* = 140) and `r pct(h2_max$power_h2, 0)`% (*N* = 160) power to support equivalence if suppression is absent under load. | Same LMM. Two one-sided tests (TOST) of the suppression contrast in the load group against $\pm\Delta$ ($\Delta$ = `r fmt(h2_bound$delta_log, 4)` log units), each at $\alpha$ = .02. | $\Delta$ is `r fmt(100 * h2_bound$delta_h2, 0)`% of the control suppression effect (`r fmt(h2_bound$delta_ms, 0)` ms), close to the precision of the meta-analytic estimate under higher load (±`r fmt(crit$higher_load_halfwidth_pct, 0)`%). | If both tests are significant, we will conclude that suppression is practically absent under load. Otherwise, we will not support the absence of suppression. This conclusion requires meeting ON1 and ON2. | As for H1. Support for H2 would most strongly challenge this view. |
+| ON1. Do participants in the load group perform the counting task? | Count-verification accuracy in the load group will be above chance (.5). | All participants in the load group who complete the session, before exclusions. Simulations gave `r if (count_power > .99) "more than 99%" else paste0(pct(count_power, 0), "%")` power in a worst-case scenario (mean accuracy of `r pct(count_row$mean_acc)`%, *N* = `r count_row$n_load`). | Logistic mixed model of verification accuracy with by-participant random intercepts. The critical test is whether the intercept is above 0, i.e., chance (one-sided Wald *z* test, $\alpha$ = .02). | The mean accuracy if 140 of `r count_row$n_load` participants are at the inclusion threshold (see Data Pre-processing and Exclusions) and the remaining 20 perform the task at chance. | If accuracy is above chance, we will conclude that participants devoted enough resources to the counting task. Otherwise, we will not interpret either H1 or H2 as a test of executive load. | Not applicable (outcome-neutral criterion). |
+| ON2. Does the colour singleton capture attention in the load group? | The capture effect (log RT, LPDL − no distractor) in the load group will be positive. | As for H1. Simulations gave `r pct(capt_power$power, 0)`% power for a capture effect of `r fmt(capt_power$r_capture * params$beta[["conditioncapture"]], 3)` log units, about the size of the smallest effect of interest for H1 (*N* = 140). | Capture contrast in the load group, from the same LMM (one-sided, $\alpha$ = .02). | Capture remained large under WM load in previous studies [@gao2019; @vicenteconesa2024] and was about twice as large as suppression in the control group. | If capture is significant, we will conclude that participants searched as intended and that the distractor interfered with search. Otherwise, we will not interpret either H1 or H2 as evidence about suppression. | Not applicable (outcome-neutral criterion). |
+
+: Study Design {#tbl-design}
+
+:::
+
+# Method
+
+## Participants
+
+### Load Group
+
+Based on our power analysis (see Sample Size Rationale), we plan to recruit 160 participants for the load group. Participants will be psychology students from the Autonomous University of Madrid (UAM), who will take part in exchange for course credits. Because the task will be conducted in Spanish, they must be native Spanish speakers. They must also have normal or corrected-to-normal vision, including normal colour vision, and be naive to the purpose of the experiment. If exclusions (see Data Pre-processing and Exclusions) leave fewer than 140 participants, we will continue recruiting until we reach 140 participants who meet all inclusion criteria.^[Specifically, we will invite as many new participants as are needed to reach 140. For example, if 135 participants meet the inclusion criteria, we will invite five more, and we will repeat this step until 140 participants meet all criteria. Thus, the final group will include between 140 and 160 participants.] The study was approved by the Ethics Committee of the UAM (Ref. CEI-144-3228).
+
+### Control Group
+
+As a no-load control group, we will use data from @vicenteconesa2023 [Experiments 1--3], since their participants performed the same task without any concurrent task.^[The only other procedural difference is the 3-s response window of the load group (see Data Pre-processing and Exclusions). Note also that the suppression effect in this data set (`r gci(g_ctrl)`) is similar to that of the seminal study of learned distractor suppression [@wang2018], which used the same number of trials per participant (`r gci(g_wt)`). This suggests that the control data are representative of the effect typically observed with this task.] Of the 239 participants who completed that study, `r n_control` met our inclusion criteria, as reported below. Because the task was identical across experiments, we will pool the data from the three experiments.
+
+### Use of Existing Data and Level of Bias Control
+
+The main problem of using an existing control group is that the authors have already accessed, observed, and analysed these data, both for the original publication and to inform the power analysis reported below. In contrast, no data from the load group exist at the time of submission, and none will be collected before in-principle acceptance. Importantly, both confirmatory hypotheses concern the suppression effect in the load group. H1 compares this effect with the one observed in the control group, and H2 will test whether this effect is absent in the load group alone (see @tbl-design). Therefore, the data observed so far cannot answer either. Following the advice of the PCI RR Managing Board, we consider this submission to meet Level 2 bias control.
+
+We also adopted three additional safeguards. First, all confirmatory tests will use $\alpha = .02$. Second, the analysis script is already written and available at https://doi.org/10.5281/zenodo.XXXXXXX. Until we collect the load group data, it runs on a simulated load group in the same format as the task output, and we will apply it unchanged to the final data set. Third, a blinded analyst will apply the exclusion criteria during data collection and report only the number of participants retained, so that the authors will not access the load group data until recruitment has ended. This analyst will then run the analysis script on the final data set, and only then will the authors inspect and interpret the results.
+
+### Sample Size Rationale
+
+To determine the sample size for the load group, we first needed to establish how large an attenuation of the suppression effect our design should detect. This is not a trivial decision, given that previous studies have found little evidence that WM load affects distractor suppression. Rather than choosing an arbitrary effect size, we used the available evidence to establish a smallest effect size of interest [@lakens2018]. Specifically, we conducted a Bayesian meta-analysis of the standardised suppression effects ($g_z$) of the five experiments that, to our knowledge, have compared learned distractor suppression under lower and higher WM load [@gao2019, Experiments 1--2; @vicenteconesa2024, Experiments 1--3]. Details of the meta-analytic procedure are provided in the Appendix.
+
+The results showed large suppression effects under both lower ($g_z$ = `r est_ci(m_low)`) and higher WM load ($g_z$ = `r est_ci(m_high)`), with virtually no difference between them ($\Delta g_z$ = `r est_ci(m_mod)`; Figure [1](#fig-power)[A]{.figletter}). Although the estimated effect of WM load was close to zero, its 95% credible interval (CrI) was still compatible with attenuations of up to approximately `r fmt(crit$largest_attenuation_pct, 0)`% of the suppression effect under lower load ($\Delta g_z$ = `r fmt(m_mod$ci_lower, 2)`). We therefore set our smallest effect size of interest at a 20% attenuation, aiming to detect effects that previous studies could not conclusively rule out.
+
+Applying the same logic to our power analysis, we assumed that the load attenuates the suppression effect by 20% relative to the control group of @vicenteconesa2023, equivalent to $\Delta g_z$ = `r fmt(-0.2 * m_low$median, 2)` in the meta-analysis. In the confirmatory model fitted to the control group (see Confirmatory Model), the suppression coefficient was $\beta_{\text{Suppression}}$ = `r fmt(supp[["est"]], 3)`. Thus, this attenuation corresponds to $\beta_{\text{Group} \times \text{Suppression}}$ = `r fmt(-es20$delta_coefficient, 3)`. For H2, we will use the two one-sided tests (TOST) procedure [@lakens2018; @schuirmann1987] to determine whether the suppression effect under load is practically equivalent to zero. We set the equivalence bounds at ±`r fmt(100 * h2_bound$delta_h2, 0)`% of the suppression effect observed in the control group, a value close to the precision of the meta-analytic estimate under higher load (±`r fmt(crit$higher_load_halfwidth_pct, 0)`% of the estimated effect). Thus, H2 will be supported only if the 96% confidence interval for the suppression effect in the load group falls entirely within these bounds. Figure [1](#fig-power)[B]{.figletter} illustrates both tests.
+
+Finally, we estimated the power of both confirmatory tests through simulations [@debruine2021; @francomartinez2026; @kumle2021] based on the LMM fitted to the control data. In each simulated data set, we generated both groups from this model, modifying only the suppression effect in the load group (a 20% attenuation for H1 and no suppression for H2). Each of the `r format(n_sim, big.mark = ",")` data sets simulated per sample size was analysed with the preregistered confirmatory model and tests (a one-sided test for H1 and two one-sided tests for H2, each at $\alpha$ = .02). With 140 participants in the load group, `r if (pct(p20$power, 0) == pct(h2_min$power_h2, 0)) sprintf("both tests achieved %s%% power", pct(p20$power, 0)) else sprintf("the power was %s%% for H1 and %s%% for H2", pct(p20$power, 0), pct(h2_min$power_h2, 0))` (Figure [1](#fig-power)[C]{.figletter}), with false-positive rates close to the nominal 2% level (`r pct(calib$power)`% for H1, and `r pct(h2_t1_upper$power_h2)`% and `r pct(h2_t1_lower$power_h2)`% for H2 at the upper and lower equivalence bounds). We therefore established 140 participants as the minimum sample size. However, we plan to recruit 160 participants to accommodate potential exclusions, which will increase power to `r pct(p20_max$power, 0)`% for H1 and `r pct(h2_max$power_h2, 0)`% for H2.
+
+Using the same logic, we also conducted sensitivity analyses [@lakens2022] to identify the smallest effects that the time-course analysis of the suppression effect and the analysis of how the load manipulation modulates explicit knowledge (see Exploratory Analyses) can detect with 90% power when the load group includes 140 participants (Figure [1](#fig-power)[D--E]{.figletter}). These analyses can detect a `r mde_triple$attenuation_pct`% attenuation in the increase of suppression across blocks compared to the control group ($\beta_{\text{Group} \times \text{Suppression} \times \text{Time}}$ = `r fmt(-mde_triple$attenuation_pct / 100 * params_time$beta[["conditionsuppression:log_time_end"]], 3)`), and a `r mde_aw$attenuation_pct`% attenuation in awareness, as measured by the model reported below ($\beta_{\text{Group} \times \text{Distance}}$ = `r fmt(mde_aw$attenuation_pct / 100 * aw_ctrl$mu, 2)`).
+
+```{r}
+#| label: fig-power
+#| fig-cap: "Previous Evidence, Power of the Confirmatory Tests and Sensitivity of the Exploratory Analyses"
+#| apa-note: "&amp;#40;A) Meta-analysis of previous load manipulations. The distributions at the bottom show the posterior of the meta-analytical estimates, with their medians and 66% and 95% credible intervals. (B) Illustration of the confirmatory tests. Power for the confirmatory tests (C) and sensitivity analyses for the exploratory tests (D, E). Ribbon shows 95% CI. *S* = suppression effect (LPDL − HPDL) in the load condition or group indicated by the subscript; Δ = equivalence bound of H2."
+#| out-width: "100%"
+knitr::include_graphics(file.path("output", "figures", "fig-1.png"))
+```
+
+## Procedure and Design
+
+Except for the concurrent executive task and the 3-s response window, the procedure and design will match those of @vicenteconesa2023. The task will be run in PsychoPy [@peirce2019] using a version programmed from the original MATLAB program of @vicenteconesa2023, and it can be accessed at https://github.com/franfrutos/rr_executive_vsl/tree/main/Materials/psychopy_task. Figure [2](#fig-task)[A]{.figletter} illustrates the sequence of a visual search trial. After a 500-ms fixation cross, a search display with eight figures arranged in an imaginary circle will appear on the screen for 3 s or until response. The intertrial interval will be 500 ms. In all trials, a different-shaped target (a diamond among circles or a circle among diamonds) will be present. In some trials, all the figures will be displayed in the same colour. In other trials, a colour singleton distractor (red among green figures or vice versa) will be present. Each figure will contain a vertical or horizontal line. The line orientation will be chosen randomly in each trial. Participants will be asked to find the target as quickly as possible and discriminate the line orientation, pressing the left-arrow key for horizontal and the up-arrow key for vertical. Error feedback will be presented at the end of the trial after a mistake or a time-out.
+
+Each block will include 120 trials. There will be three experimental conditions: (1) no distractor (ND), in which all the figures will be displayed in the same colour (40 trials, 33%); (2) HPDL, in which the singleton distractor will be presented in one particular location (52 trials, 43%); and (3) LPDL, in which the distractor will appear at random in any of the remaining locations (28 trials, 24%). Trials of each condition will be presented randomly within each block. The HPDL will be randomly set for each participant and will remain the same throughout the task. As illustrated in Figure [2](#fig-task)[A]{.figletter}, in distractor-present trials, 65% of the time the distractor will appear at the HPDL, and only 5% at each other location.
+
+```{r}
+#| label: fig-task
+#| fig-cap: "Experimental Procedure for the Load Group"
+#| apa-note: "&amp;#40;A) Trial sequence. Participants report the orientation of the line inside the target with the left (horizontal) or up (vertical) arrow key. Error feedback follows incorrect responses and time-outs. The map shows how often the colour singleton distractor appears at each location. (B) A period of the counting task. Participants count the targets with the line orientation shown at the start of the period (here, vertical). After 8, 10, or 12 trials, they press S (yes) or N (no) to report whether the number shown matches their count."
+#| out-width: "100%"
+knitr::include_graphics(file.path("output", "figures", "fig-2.png"))
+```
+
+Each participant will complete six blocks. After each block, a message on the screen will indicate that they may rest as needed. Throughout the experiment, participants will also perform a concurrent executive task. Each block will be divided into 12 periods: four periods of 8 trials, four periods of 10 trials, and four periods of 12 trials. The order of the periods will be randomised within each block. Figure [2](#fig-task)[B]{.figletter} shows the sequence of a period. At the beginning of each period, an instruction screen will indicate whether participants must count targets containing a vertical line or a horizontal line. The relevant line orientation will be randomly selected for each period.
+
+Participants will then perform the visual search task as usual while tracking the number of targets containing the relevant line orientation. Therefore, on each trial, participants will not only identify the target and respond to the orientation of the line it contains, but also determine whether to count that target and, when appropriate, update the current count maintained in WM. At the end of each period, a number will be presented, and participants will indicate whether it corresponds to the number of targets containing the relevant line orientation in the preceding period by pressing the S ('yes') or N ('no') key. The number will be correct in half of the periods of each length and incorrect in the other half. Because each target has a 50% chance of containing the relevant orientation, the correct count will follow a binomial distribution (*n* = period length, *p* = .5). Incorrect numbers will be drawn from the same distribution and redrawn if they match the correct count for that period. In other words, correct and incorrect numbers will follow almost the same distribution, so participants will need to keep count to tell them apart. After this response, a new period will begin with a new counting instruction.
+
+Before the first block, participants will complete three practice trials of the search task, as in @vicenteconesa2023, followed by one practice period of the counting task (eight trials) with feedback on the verification. In all practice trials, all the figures will be presented in the same colour, so no singleton distractor will be presented before the first block. Before each practice, participants will answer brief multiple-choice questions about the instructions, which will be shown again until all answers are correct.
+
+Similar to @vicenteconesa2023 [Experiment 1], participants will complete an awareness test consisting of two questions. In the first, we will ask participants whether they think that the singleton distractor appeared more often in one particular location. They will respond on a 1 (definitely not) to 6 (definitely yes) Likert scale. Regardless of their response, in the second question they will also be required to indicate the location they think contained the distractor on more occasions. An array of eight circles containing numbers from 1 to 8 will be presented on the screen, and participants will indicate their selection by typing the number inside the location they select as the HPDL.
+
+## Statistical Analyses
+
+All analyses will be conducted in R [version 4.3.1\; @rcore2023]. We will fit linear mixed models (LMMs) with *lme4* [@bates2015] and test their fixed effects using Satterthwaite's approximation to the degrees of freedom, as implemented in *lmerTest* [@kuznetsova2017]. We will also fit the mixed-effects logistic regression of ON1 with *lme4* and the awareness model with *glmmTMB* [@brooks2017]. Unless noted otherwise, all preregistered tests will be one-sided in the predicted direction, with $\alpha = .02$.
+
+### Data Pre-processing and Exclusions
+
+To make both groups comparable, we will apply the same pre-processing to the load and control groups, in the following order. First, we will exclude participants who do not complete the session or who have more than 25% errors or time-outs in the search task from all analyses. Second, we will remove the first 20 trials of the first block. Third, we will include only trials with a correct response in the RT analysis. Fourth, we will exclude RTs below 200 ms or above 3000 ms. Because the search display remained on the screen until response in the control group, and their original analysis excluded RTs above 5 s, this limit ensures that RTs cover the same range in both groups. Finally, we will exclude RTs more than 2.5 *SD*s from each participant's mean. In addition, we will exclude participants in the load group if their count-verification accuracy is not above chance, as this would suggest that they did not devote sufficient resources to the concurrent task. Specifically, we will use a one-sided binomial test against chance (*p* = .5, $\alpha$ = .02). With `r count_row$n_verif` verifications (12 per block), participants will thus need at least `r count_row$threshold` correct responses (`r pct(count_row$threshold_acc)`%) to be included.
+
+### Confirmatory Model
+
+Both hypotheses concern the suppression effect, that is, how much faster participants respond when the distractor appears in the HPDL than when it appears in the LPDLs. To estimate this effect and its difference between groups, log-transformed RTs will be analysed using an LMM including predictors Condition (HPDL, LPDL, ND), Group (control, load), and their interaction. Rather than an omnibus test of Condition with little theoretical interest, we will use two planned contrasts that correspond to the effects of interest [@schad2020]. The first, suppression (LPDL − HPDL), measures how much less the distractor interferes with search when it appears in the HPDL. The second, capture (LPDL − ND), measures how much the distractor slows down search when it appears elsewhere. Group will be coded −0.5 (control) and 0.5 (load), so its interaction with suppression directly estimates how much the suppression effect differs between the load and control groups. The model's formula, as implemented in *lme4*, will be as follows:
+
+$$
+\log(\text{RT}) \sim \text{Group} \times \text{Condition} + (\text{Condition} \mid \text{Participant})
+$$
+
+Participants are likely to differ not only in their overall speed, but also in how much the distractor captures their attention and in how much they learn to suppress it. To account for these differences, the model will include random slopes for both contrasts across participants, as @barr2013 recommend. If this model does not converge or yields a singular fit, we will simplify it [@bates2018]. Specifically, we will first remove the random slope for capture and then the random slope for suppression. This order keeps the individual differences in suppression, the effect of interest, in the model for as long as possible.
+
+### Hypothesis Tests
+
+H1 will be tested with the Group × Suppression coefficient of the confirmatory model ($\beta_{\text{Group} \times \text{Suppression}}$), which estimates the difference in the suppression effect between the load and the control group (load minus control). Because H1 predicts a smaller suppression effect in the load group, we will use a one-sided test for this directional prediction. Thus, H1 will be supported if this coefficient is significantly smaller than zero.
+
+We will test H2 using the suppression effect in the load group, estimated from the same model. A non-significant suppression effect would not be enough to show that suppression is absent [e.g., @altman1995]. Instead, we will test whether the effect is small enough to be considered practically equivalent to zero, using the TOST procedure as implemented in the *marginaleffects* package [@arelbundock2024]. Specifically, H2 will be supported if the suppression effect in the load group is significantly larger than $-\Delta$ and significantly smaller than $+\Delta$, that is, if its 96% CI falls entirely within $\pm\Delta$. As explained in the Sample Size Rationale, $\Delta$ corresponds to `r fmt(100 * h2_bound$delta_h2, 0)`% of the suppression effect in the control group ($\Delta$ = `r fmt(h2_bound$delta_log, 4)`). For both hypotheses, we will report the estimates and their 95% CIs in both log units and ms.
+
+Viewed together, H1 and H2 distinguish three possible outcomes (see @tbl-design). If both are supported, the load abolishes suppression. If only H1 is supported, the load attenuates suppression without abolishing it. Finally, if neither is supported, we will interpret this outcome as support for previous accounts in which distractor-location learning is independent of executive resources.
+
+### Outcome-Neutral Criteria
+
+Two outcome-neutral criteria [@henderson2022], listed as ON1 and ON2 in @tbl-design, will determine whether H1 and H2 can be interpreted as tests of the role of executive resources in distractor suppression. First, participants in the load group must actually perform the concurrent task. To that aim, we will fit a mixed-effects logistic regression to the accuracy of each count verification, with a fixed intercept and a by-participant random intercept, and test whether its intercept, which estimates the log-odds of a correct verification, is above 0 (i.e., accuracy above .5) with a one-sided Wald *z* test. This test will include all participants in the load group who complete the session, before the exclusions described above. To estimate the power of this test, we simulated the worst case for our sampling plan, in which 140 of the `r count_row$n_load` participants we plan to recruit are just at the inclusion threshold (`r pct(count_row$threshold_acc)`%), and the other 20 respond at chance. This gives a mean accuracy of `r pct(count_row$mean_acc)`%. Across `r format(count_row$nsim, big.mark = ",")` simulated data sets, the test had `r if (count_power > .99) "more than 99%" else paste0(pct(count_power, 0), "%")` power (see also @tbl-design). If this criterion is not met, neither H1 nor H2 will be interpreted as a test of executive load.
+
+Second, the singleton distractor must still capture attention in the load group. Otherwise, a smaller or absent suppression effect in this group could simply mean that there was little capture to suppress, that participants did not search as intended, or that the data were too noisy to reveal any effect of the distractor. To that aim, we will test whether the capture effect in the load group, estimated from the confirmatory model with *marginaleffects*, is significantly larger than zero, regardless of whether capture differs between groups. Previous studies found that capture remained large under WM load [@gao2019; @vicenteconesa2024], and in the control group capture was about twice as large as suppression. In simulations without suppression in the load group (the scenario of H2), this test had `r pct(capt_power$power, 0)`% power with `r n_load_min` participants for a capture effect of `r fmt(capt_power$r_capture * params$beta[["conditioncapture"]], 3)` log units, about the size of the smallest effect of interest for H1 (`r pct(capt_power$r_capture, 0)`% of the capture effect in the control group). If this criterion is not met, neither H1 nor H2 will be interpreted as evidence about suppression under load.
+
+### Exploratory Analyses
+
+Beyond the confirmatory tests, we will conduct three exploratory analyses. First, although we have no specific theoretical predictions about errors in the search task, we will analyse them using a logistic mixed-effects model with a similar structure to the confirmatory model. We will also use the same approach to select the random-effects structure.
+
+Second, suppression can emerge early in the task [@duncan2026; @zhang2019], but it may continue to change over several hundred trials [e.g., @hanne2023; @yao2026]. Thus, the concurrent task might impair the learning process underlying suppression even if the overall effect remains relatively intact. To assess whether the load slows down learning, we will examine how the suppression effect changes across blocks in each group. To that aim, we will add Time to the confirmatory model, along with all its interactions with Group and Condition. Because learning curves in similar attentional tasks are often well described by a power function [@garrefrutos2024; @garrefrutos2025; @garrefrutos2026], we will log-transform Time. The key effect will be the Group × Suppression × Time interaction, which estimates whether suppression increases more slowly across blocks in the load group. Because a slower increase would make this interaction negative, we will use a one-sided test and conclude that the load slows learning if the interaction is significantly smaller than zero. Although this prediction is directional, we consider the analysis exploratory because we do not know what effect size would be reasonable. We will code Condition and Group as in the confirmatory model and select the random-effects structure using the same procedure.
+
+Finally, because the claim that distractor suppression is automatic rests on its apparent independence from both awareness and cognitive resources, we will examine whether the load reduces not only learning to suppress the HPDL, but also explicit knowledge of this location. To that aim, we will analyse the location that participants select in the second awareness question.^[If the load affects suppression and explicit knowledge differently, this would only qualify as a single dissociation [@stephens2019]. Although informative, this pattern would not necessarily imply that the two measures reflect independent processes, since single-system models can also produce similar results [@berry2008; @kinder2003].] Following @francomartinez2025, the probability of selecting each location will be modelled as a function of its distance from the HPDL, as follows:
+
+$$
+P(l) = \frac{\exp(-\lambda_i d_l)}{\sum_{m=1}^{8} \exp(-\lambda_i d_m)},
+$$
+
+::: {.NoIndent}
+where $d_l$ is the circular distance between location *l* and the HPDL (from 0 to 4), and $\lambda_i$ is the awareness gradient of participant *i*. A larger gradient means that choices are more concentrated around the HPDL, whereas a gradient of zero corresponds to random choices. Because each participant gives a single response, we cannot estimate individual gradients precisely. Instead, the model estimates the mean gradient for each group, assuming individual gradients are normally distributed around it.
+:::
+
+In other words, the awareness model is a mixed-effects logistic regression of each participant's choice among the eight locations, with Distance as a predictor and a random slope of Distance across participants. Following @muff2020, we will fit this model with *glmmTMB* and include the Group × Distance interaction. If the load reduces explicit knowledge, distance from the HPDL should have a weaker influence on choices in the load group, making this interaction positive. As in the time-course analysis, we will use a one-sided test and conclude that the load reduces explicit knowledge if the interaction is significantly larger than zero. For this analysis, the control group includes only `r aw_ctrl$n` participants from Experiment 1 of @vicenteconesa2023, because participants in Experiments 2 and 3 completed a different awareness test.
+
+
+```{=latex}
+\FloatBarrier
+```
+
+# References
+
+::: {#refs}
+:::
+
+# Meta-Analysis of Previous Load Manipulations {#apx-meta}
+
+To set the smallest effect size of interest for H1 and the equivalence bounds for H2 (see Sample Size Rationale), we meta-analysed the experiments that have compared learned distractor suppression under lower and higher WM load (Figure [1](#fig-power)[A]{.figletter}). This appendix describes how we selected these experiments, computed their effect sizes, and combined them.
+
+## Studies
+
+We included all experiments that, to our knowledge, measured suppression of a high-probability distractor location in the AST under two WM-load levels, manipulated across blocks or groups. We identified them in the review of @vicenteconesa2024review and in a search of OpenAlex and Semantic Scholar (October 2026). Five experiments met these criteria [@gao2019, Experiments 1--2; @vicenteconesa2024, Experiments 1--3], and Figure [1](#fig-power)[A]{.figletter} shows their effects. We did not include four other studies. Two measured suppression of a distractor feature rather than a spatial location [@chen2026; @hamblinfrohman2022]. The other two did not manipulate load across blocks or groups. In @huang2025, participants held a location in memory in most search trials, which were intermixed with only a few trials without a memory task. In @zhao2024, load varied randomly from trial to trial, and participants searched in feature-search mode [@bacon1994], which does not allow disentangling the effect of WM load on learning.
+
+## Effect Sizes
+
+Because the experiments differed in overall response speed and in the variability of the suppression effect, we expressed the suppression effect under each load as a standardised effect size [@morris2002], dividing it by the *SD* of participants' suppression scores pooled over the two loads, as follows:
+
+$$
+g_z = J \, \frac{M_{\text{LPDL}} - M_{\text{HPDL}}}{SD_{\text{pooled}}}
+$$
+
+::: {.NoIndent}
+where $M_{\text{LPDL}} - M_{\text{HPDL}}$ is the mean suppression effect, $SD_{\text{pooled}}$ is the pooled *SD* of the suppression scores in between-participant designs and the root mean square of the two *SD*s in within-participant designs, and *J* is Hedges' small-sample correction [@hedges1981]. The sampling variance of each effect was as follows:
+:::
+
+$$
+v = J^2 \left( \frac{SD^2}{n \, SD_{\text{pooled}}^2} + \frac{(M_{\text{LPDL}} - M_{\text{HPDL}})^2}{2 \, df \, SD_{\text{pooled}}^2} \right)
+$$
+
+::: {.NoIndent}
+where *SD* and *n* are the *SD* of the suppression scores and the number of participants under that load, and *df* are the degrees of freedom of $SD_{\text{pooled}}$ (*n* − 1 in within-participant designs and $n_1 + n_2 - 2$ in between-participant designs). In within-participant designs, the two effects come from the same participants, so their sampling errors are correlated [@borenstein2009, Chapter 24]. Their covariance is $r \sqrt{v_{\text{lower}} \, v_{\text{higher}}}$, where *r* is the correlation between participants' suppression effects under the two loads. Because @gao2019 tested each load in a separate session, we used the test-retest correlation of the suppression effect in the AST reported by @ivanov2024, *r* = `r sub("^0", "", fmt(meta_r$r, 2))`, as an educated guess.
+:::
+
+For @vicenteconesa2024, we recomputed all statistics from their open data. For @gao2019, we read the mean suppression effects from their figures. In Experiment 1, we derived the *SD*s of participants' suppression scores from the reported *t* values [@lakens2013]. In Experiment 2, however, they reported suppression effects only as significant (*p*s < .001). We therefore derived the *SD* of its suppression scores from the *SD*s of the HPDL and LPDL RTs, obtained from the error bars of their Figure 4 (*SD* = *SE* × $\sqrt{n}$), and from the correlation between these RTs across participants (*r*):
+
+$$
+SD = \sqrt{SD_{\text{HPDL}}^2 + SD_{\text{LPDL}}^2 - 2r \, SD_{\text{HPDL}} \, SD_{\text{LPDL}}}
+$$
+This correlation was not reported, but it can be recovered from their Experiment 1, which used the same task, design, and sample size, by solving the same equation for *r* (*r* = `r sub("^0", "", fmt(gao_sd$r_pooled, 3))`, averaged across the two loads). This gave *SD*s of `r fmt(gao_sd$sd_supp_noload)` ms without load and `r fmt(gao_sd$sd_supp_load)` ms with load. Because these *SD*s rest on values read from a figure and on a correlation taken from another experiment, we also conducted a sensitivity analysis excluding this experiment.
+
+## Meta-Analytic Model
+
+We analysed the `r meta$k_effects` effects with a Bayesian meta-regression in the *brms* package [@burkner2017], which uses Stan [@carpenter2017]. This model estimates the suppression effect under each load while accounting for the dependence between the two effects of each within-participant experiment. The model was as follows:
+
+$$
+g_{z,i} = \beta_0 + \beta_1 \, \text{Load}_i + u_i + e_i
+$$
+
+::: {.NoIndent}
+where Load was coded −0.5 (lower load) and 0.5 (higher load), $u_i \sim \text{Normal}(0, \tau)$ captures the heterogeneity between effects, and the sampling errors $e_i$ follow a multivariate normal distribution with the variances and covariances described above, which are treated as known (implemented with the fcor() term in *brms*). Thus, $\beta_0$ estimates the mean suppression effect, and $\beta_1$ estimates its modulation by load. We used Normal(0, 1) priors for both coefficients, on the $g_z$ scale, and a weakly informative half-Normal(0, 0.5) prior for $\tau$ [@rover2021]. We ran four chains of 2,000 iterations (1,000 of warm-up), with a target acceptance rate of .95. All $\hat{R}$ values were below 1.01 [@vehtari2021], and `r if (all(meta_crit$divergences == 0)) "there were no divergent transitions" else "there were a few divergent transitions"`.
+:::
+
+## Results
+
+The main results are reported in the Sample Size Rationale and Figure [1](#fig-power)[A]{.figletter}. Heterogeneity between effects was low ($\tau$ = `r est_ci(m_tau)`). In the sensitivity analysis excluding @gao2019 [Experiment 2], both the largest attenuation and the half-width of the higher-load estimate were somewhat larger because fewer effects were pooled (`r fmt(crit_sens$largest_attenuation_pct, 0)`% and `r fmt(crit_sens$higher_load_halfwidth_pct, 0)`%, respectively). In other words, previous load manipulations left suppression practically intact, regardless of whether this experiment was included.

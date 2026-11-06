@@ -1,0 +1,26 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+Rplots.pdf
+.Rdata
+.httr-oauth
+.DS_Store
+.quarto
+**/*.quarto_ipynb
+
+/.quarto/
+/.claude/
+
+# Only the final manuscript is kept
+/output/manuscript/*
+!/output/manuscript/rr_executive_manuscript.pdf
+
+# Fitted models (the scripts fit them again if they are missing)
+/output/models/
+
+# Working notes
+/notes/
+
+# Cover letters and other editorial documents
+/editorial/
