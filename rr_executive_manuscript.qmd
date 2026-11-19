@@ -59,7 +59,7 @@ author-note:
     deceased: ~
   disclosures:
     study-registration: "This Stage 1 Registered Report has been submitted to PCI Registered Reports. PCI RR will preregister the approved protocol on OSF at in-principle acceptance."
-    data-sharing: "The data used to plan the sample size are available from Vicente-Conesa et al. (2023). The task program, analysis code, simulation outputs, and reproducible workflow to generate this manuscript are available at https://doi.org/10.5281/zenodo.XXXXXXX (development version at https://github.com/franfrutos/rr_executive_vsl). Until data collection, the analysis code runs on simulated data in the same format as the task output."
+    data-sharing: "The data used to plan the sample size are available from Vicente-Conesa et al. (2023). The task program, analysis code, simulation outputs, and reproducible workflow to generate this manuscript are available at https://doi.org/10.5281/zenodo.24369069 (development version at https://github.com/franfrutos/rr_executive_vsl). Until data collection, the analysis code runs on simulated data in the same format as the task output."
     financial-support: "This study was supported by grant PID2023-150830NB-I00, awarded to MAV, funded by MICIU/AEI/10.13039/501100011033 and FEDER, UE. FGF was supported by a postdoctoral contract funded by this grant. DS was supported by a grant from UKRI (ES/Y002482/1)."
     conflict-of-interest: "The authors have no conflicts of interest to disclose."
     authorship-agreements: "The authors used Claude Opus 5.5 (Anthropic) for copyediting and as a programming assistant, reviewed all its output, and take full responsibility for the content of this article."

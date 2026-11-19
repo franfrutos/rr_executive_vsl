@@ -46,6 +46,6 @@ Code and materials are released under a [CC BY 4.0](LICENSE.md) license. The dat
 ### Links ###
 
 - Stage 1 registration: PCI RR will preregister the approved protocol on OSF at in-principle acceptance
-- Zenodo repository: https://doi.org/10.5281/zenodo.XXXXXXX
+- Zenodo repository: https://doi.org/10.5281/zenodo.24369069
 - Data of Vicente-Conesa et al. (2023): <https://osf.io/xtsa2/>
 - Data of Vicente-Conesa et al. (2024): <https://osf.io/b8g2v/>
