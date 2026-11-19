@@ -24,3 +24,13 @@ Rplots.pdf
 
 # Cover letters and other editorial documents
 /editorial/
+
+# Laboratory version of the task, not used in the online design
+/Materials/psychopy_task/
+
+# Results of analysis.R on the simulated data (run_all.R generates them)
+/output/analysis/analysis.rds
+/output/figures/fig-results.png
+
+# Word template, only used to render the Word version for the co-authors
+/Input/apaquarto_reference.docx

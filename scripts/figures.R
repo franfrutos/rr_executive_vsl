@@ -4,7 +4,7 @@
 
 # Figures of the manuscript, drawn at the text width (16 cm) and saved as PNG (600
 # dpi). Figure 1: sample size rationale. Figure 2: procedure of the load group,
-# with the geometry of the PsychoPy task. Figure of the results: from analysis.R
+# with the geometry of the task. Figure of the results: from analysis.R
 
 # Loading packages----
 source("scripts/functions.R")
@@ -53,12 +53,11 @@ theme_results <- function() {
 
 # Figure 1 ----
 target_power <- .90
-n_planned <- 140 # minimum analysable load group
-n_max <- 160     # participants to be recruited in the load group
+n_planned <- 140 # minimum analysable size of each group
+n_max <- 160     # participants to be recruited in each group
 fig_width <- 16  # cm, text width of the manuscript (A4 or Letter, 2.54 cm margins)
 annot_size <- 6.5 / .pt # annotations in pt
 h2_bound <- pow$h2_bound
-params_no_time <- ctrl$params
 # expected SE of the load-group suppression at the planned N (no suppression)
 se_load_planned <- pow$h2 %>%
   filter(r == 0, n_load == n_planned) %>%
@@ -108,10 +107,10 @@ sens_row <- function(labels) {
                      align = "hv", axis = "tblr")
 }
 
-# Confirmatory tests: power by N_load, with the planned N ----
-# H1: 20% attenuation of the suppression effect; H2: no suppression in the load
-# group, tested against the 18% bound
-es20 <- pow$es
+# Confirmatory tests: power by the size of each group, with the planned N ----
+# H1: 23% attenuation of the suppression effect; H2: no suppression in the load
+# group, tested against the 19% bound
+es_h1 <- pow$es
 power_tests <- bind_rows(
   pow$power_conf %>%
     transmute(test = "H1", n_load, power, ci_lower, ci_upper),
@@ -141,7 +140,7 @@ confirmatory_panel <- function() {
     # colour and fill share title and labels, so the legend keys show line, point and band
     scale_color_manual(NULL, values = test_colors, labels = test_labels) +
     scale_fill_manual(NULL, values = test_fills, labels = test_labels) +
-    labs(x = quote("Load group size," ~ italic(N)[load]), y = "Power") +
+    labs(x = quote("Participants per group," ~ italic(N)), y = "Power") +
     theme_results() +
     # no legend margin and a shorter key: the legend sits clear of the N_max line
     theme(legend.position = "inside", legend.position.inside = c(1, .3), legend.justification = c(1, .5),
@@ -150,17 +149,17 @@ confirmatory_panel <- function() {
 }
 
 # Schematic of what each test compares, in ms of suppression: the control effect
-# and the effect assumed in the load group (H1, 20% smaller; H2, no suppression
-# within the bounds). Error bars: +-1 SE, expected at the planned N in the load group
+# and the effect assumed in the load group (H1, 23% smaller; H2, no suppression
+# within the bounds). Error bars: +-1 SE, expected at the planned N, the same in
+# both groups (same model and size)
 hypotheses_panel <- function() {
   ctrl_ms <- h2_bound$control_suppression_ms
-  h1_ms <- ctrl_ms - es20$delta_suppression_ms
+  h1_ms <- ctrl_ms - es_h1$delta_suppression_ms
   bound <- h2_bound$delta_ms
   supp_col <- supp_color
   ms_per_log <- ctrl_ms / h2_bound$control_suppression
-  se_ctrl <- ms_per_log * sqrt(params_no_time$vcov_beta["conditionsuppression", "conditionsuppression"])
-  se_load <- ms_per_log * se_load_planned
-  pts <- tibble(x = c(1, 2, 2), y = c(ctrl_ms, h1_ms, 0), grp = c("control", "load", "load"), se = c(se_ctrl, se_load, se_load))
+  se <- ms_per_log * se_load_planned
+  pts <- tibble(x = c(1, 2, 2), y = c(ctrl_ms, h1_ms, 0), grp = c("control", "load", "load"), se = se)
   ggplot(pts, aes(x, y)) +
     annotate("rect", xmin = 1.75, xmax = 2.25, ymin = -bound, ymax = bound, fill = "grey89") +
     annotate("segment", x = 1.75, xend = 2.25, y = c(bound, -bound), yend = c(bound, -bound), color = "grey45", linewidth = .35) +
@@ -248,10 +247,10 @@ x_title <- cowplot::ggdraw() +
 
 # Figure 1: one row per step of the sample size rationale ----
 # The forest plot with the two criteria as effect sizes (g_z): H1, a decrease of
-# 20% of the lower-load estimate; H2, +-18% of the higher-load estimate
+# 23% of the lower-load estimate; H2, +-19% of the higher-load estimate
 fp <- c(forest_panels, list(widths = forest_widths, x_title = x_title, pooled = pooled))
 q <- split(fp$pooled, fp$pooled$marker)
-sesoi_g <- -.2 * q$lower$est
+sesoi_g <- -es_h1$sesoi * q$lower$est
 panel_load <- fp$load +
   annotate("text", x = q$higher$hi + .45, y = q$higher$y, hjust = 0, size = annot_size,
            color = test_colors[["H2"]], parse = TRUE,
@@ -275,10 +274,24 @@ fixation_ms <- 500
 text_pt <- 7
 annot_col <- "grey35"
 
-# Task geometry (px of the original program, y upwards) ----
+# Task geometry (y upwards) ----
+# Sizes in degrees of the online task (Wang & Theeuwes, 2018a, 2018b), drawn at 55
+# px per degree, so the radius of 4° is the 220 px of the original program:
+# locations on a circle with a radius of 4°, circles with a radius of 1°, diamonds
+# of 2° x 2°, lines of 0.15° x 1° and a 1° x 1° fixation cross. Outline widths keep
+# their proportion in the original program (0.12° for circles and 0.13° for diamonds)
+px_per_deg <- 55
+angles <- pi - (0:7) * pi / 4 # locations 1-8, clockwise from 9 o'clock
 positions <- tibble(pos = 1:8,
-                    x = c(-220, -150, 0, 150, 220, 150, 0, -150),
-                    y = c(0, 150, 220, 150, 0, -150, -220, -150))
+                    x = round(4 * px_per_deg * cos(angles), 6),
+                    y = round(4 * px_per_deg * sin(angles), 6))
+circle_r <- 1 * px_per_deg
+circle_pen <- 2 * 7 / 120 * px_per_deg
+diamond_half <- 1 * px_per_deg   # centre of the outline, as in the original
+diamond_pen <- 2 * 10 / 150 * px_per_deg
+bar_size <- c(1, .15) * px_per_deg # length, width
+fixation_size <- 1 * px_per_deg
+fixation_pen <- circle_pen
 green <- "#00FF00"
 red <- "#FF0000"
 screen_px <- 760 # side of the screen region drawn (the display spans 600 px)
@@ -338,18 +351,25 @@ rounded_rect <- function(x0, y0, w, h, r, fill, ...) {
 # A search item at (cx, cy) mm, with s mm per px
 draw_item <- function(cx, cy, s, shape, colour, orientation, alpha = 1) {
   if (shape == "circle") {
-    disc(cx, cy, 60 * s, colour, alpha = alpha)
-    disc(cx, cy, 53 * s, "white", alpha = alpha)
+    disc(cx, cy, circle_r * s, colour, alpha = alpha)
+    disc(cx, cy, (circle_r - circle_pen) * s, "white", alpha = alpha)
   } else {
-    half <- c(75 + 5 * sqrt(2), 75 - 5 * sqrt(2)) * s
+    half <- (diamond_half + c(1, -1) * diamond_pen / 2 * sqrt(2)) * s
     for (k in 1:2) {
       add_poly(cx + c(0, -half[k], 0, half[k]), cy + c(-half[k], 0, half[k], 0),
                c(colour, "white")[k], alpha = alpha)
     }
   }
-  w <- if (orientation == "V") 7 else 100
-  h <- if (orientation == "V") 100 else 7
+  w <- if (orientation == "V") bar_size[2] else bar_size[1]
+  h <- if (orientation == "V") bar_size[1] else bar_size[2]
   add_poly(cx + c(-1, 1, 1, -1) * w / 2 * s, cy + c(-1, -1, 1, 1) * h / 2 * s, "black", alpha = alpha)
+}
+
+# The fixation cross at (cx, cy) mm, with s mm per px
+draw_fixation <- function(cx, cy, s) {
+  for (wh in list(c(fixation_size, fixation_pen), c(fixation_pen, fixation_size))) {
+    add_poly(cx + c(-1, 1, 1, -1) * wh[1] / 2 * s, cy + c(-1, -1, 1, 1) * wh[2] / 2 * s, "black")
+  }
 }
 
 # A search display: target shape and colour, singleton at distractor_pos (0 =
@@ -361,7 +381,7 @@ draw_display <- function(cx, cy, s, target_pos, target_shape, colour, distractor
   for (i in 1:8) {
     x <- cx + positions$x[i] * s
     y <- cy + positions$y[i] * s
-    if (spotlight && i == target_pos) disc(x, y, 105 * s, "grey85")
+    if (spotlight && i == target_pos) disc(x, y, 1.75 * circle_r * s, "grey85")
     draw_item(x, y, s, if (i == target_pos) target_shape else other,
               if (i == distractor_pos) singleton else colour, substr(orientations, i, i))
   }
@@ -433,7 +453,7 @@ for (k in 1:4) {
     }
   }
   centre <- draw_screen(x0, y0, size_a, faded = k == 4)
-  if (k == 2) add_text(centre[1], centre[2], "+", size = 11, family = "serif")
+  if (k == 2) draw_fixation(centre[1], centre[2], s_a)
   if (k == 3) {
     draw_display(centre[1], centre[2], s_a, target_pos = 8, target_shape = "diamond", colour = green,
                  distractor_pos = hpdl, orientations = "VHHVHHVH")
@@ -441,11 +461,11 @@ for (k in 1:4) {
   if (k == 4) add_text(centre[1], centre[2], "Error! :(", size = 7.5, family = "serif", colour = "grey45")
   add_text(x0, y0 - 1.6, labels_a[k], colour = annot_col, hjust = 0)
   if (k == 3) { # target (location 8, above the keys) and distractor (location 5, the HPDL)
-    target <- c(centre[1] - 150 * s_a, centre[2] - 150 * s_a)
-    distractor <- c(centre[1] + 220 * s_a, centre[2])
-    add_line(target[1] - 2.9, target[2] - .9, target[1] - 8.4, target[2] - 4.2)
+    target <- c(centre[1] + positions$x[8] * s_a, centre[2] + positions$y[8] * s_a)
+    distractor <- c(centre[1] + positions$x[hpdl] * s_a, centre[2] + positions$y[hpdl] * s_a)
+    add_line(target[1] - 2.44, target[2] - .62, target[1] - 8.4, target[2] - 4.2)
     add_text(target[1] - 8.8, target[2] - 4.2, "Target", colour = annot_col, hjust = 1)
-    add_line(distractor[1] + 1.6, distractor[2] + 1.6, distractor[1] + 6.8, distractor[2] + 8.6)
+    add_line(distractor[1] + 1.5, distractor[2] + 1.46, distractor[1] + 6.8, distractor[2] + 8.6)
     add_text(distractor[1] + 7.1, distractor[2] + 9, "Distractor", colour = annot_col, hjust = 0, vjust = 0)
   }
 }
@@ -527,8 +547,8 @@ add_poly(proj_x(cx, cy), proj_y(cx, cy), "white", colour = "grey55", lw = .25)
 # the eight locations, as the outlines of the items of the display
 th <- seq(0, 2 * pi, length.out = 61)
 for (l in 1:8) {
-  xx <- positions$x[l] + 60 * cos(th)
-  yy <- positions$y[l] + 60 * sin(th)
+  xx <- positions$x[l] + circle_r * cos(th)
+  yy <- positions$y[l] + circle_r * sin(th)
   add_poly(proj_x(xx, yy), proj_y(xx, yy), NA, colour = "grey78", lw = .25)
 }
 # The peaks are drawn as a bitmap, so the surface is smooth: small quads painted
@@ -614,7 +634,7 @@ ggsave("output/figures/fig-2.png", fig, width = fig_width, height = fig_height, 
        dpi = 600, bg = "white")
 
 # Figure of the results ----
-# From analysis.R: the simulated load group until Input/load_group contains the data
+# From analysis.R: both groups simulated until Input/online contains the data
 an <- load_analysis_objects("analysis")
 
 # Colours of Figure 1: the control in greys and the load group in purples. Within a

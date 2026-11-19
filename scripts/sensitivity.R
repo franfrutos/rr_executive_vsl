@@ -26,8 +26,8 @@ params_time <- ctrl$params_time
 aw_ctrl <- ctrl$aw_ctrl
 
 alpha <- .02
-n_load <- 140
-seed_base <- 20261103 # As in power.R
+n_load <- 140 # participants per group
+seed_base <- 20261111 # As in power.R
 n_cores <- min(18, parallel::detectCores() - 2)
 
 skeletons <- make_skeletons(control_clean)
@@ -37,7 +37,7 @@ scores <- control_participant_scores(control_clean)
 # An attenuation of the slope only moves the fixed part, so the fit is the same
 # and only the tested coefficient shifts. The curve uses the same fits
 cell_time <-
-  tibble(cell_id = 801, n_load = n_load, r = 1, nsim = 500) %>%
+  tibble(cell_id = 17, n_load = n_load, r = 1, nsim = 500) %>%
   mutate(seed = seed_base + cell_id * 1e5)
 
 # Fewer workers: the model with time needs more memory

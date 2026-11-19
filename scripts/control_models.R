@@ -53,7 +53,7 @@ params_time <- control_params(fit_time, control_clean)
 params_time$s # Increase of suppression over blocks (log RT)
 
 # Awareness model ----
-# Experiment 1, the same test as in the load group
+# Experiments 1 and 2
 m_aw <- fit_glmmtmb(choice_sets(circ_dist(aw_control$chosen, aw_control$HPDL)))
 
 aw_ctrl <- tibble(n = nrow(aw_control), mu = m_aw$mu, sd = m_aw$sd)

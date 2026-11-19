@@ -23,24 +23,36 @@ ensure_project_dirs()
 params <- load_analysis_objects("control_models")$params
 
 alpha <- .02
-sesoi <- .2 # H1: attenuation of 20% of the suppression effect
-delta_h2 <- .18 # H2: equivalence bounds at +-18% of the suppression effect
+sesoi <- .23 # H1: attenuation of 23% of the suppression effect
+delta_h2 <- .19 # H2: equivalence bounds at +-19% of the suppression effect
 nsim <- 500 # Replicates per cell
-seed_base <- 20261103 # Seed of each cell: seed_base + cell_id x 1e5
+seed_base <- 20261111 # Seed of each cell: seed_base + cell_id x 1e5
 n_cores <- min(18, parallel::detectCores() - 2)
 
 skeletons <- make_skeletons(control_clean)
 delta <- delta_h2 * params$a # H2 bounds in log units
 
 # H1 and H2 ----
-# About 16 h on 18 cores. Replicates in output/simulations are reused
-n_grid <- c(140, 160, 60, 100, 200, 240)
-
+# Two groups of n_load participants each. About 13 h on 18 cores. Replicates in
+# output/simulations are reused
 cells <-
-  bind_rows(
-    tibble(n_load = n_grid, r = 1 - sesoi, cell_id = 500 + seq_along(n_grid)), # H1
-    tibble(n_load = n_grid, r = 0, cell_id = 600 + seq_along(n_grid)), # H2
-    tibble(n_load = 140, r = c(1, delta_h2, -delta_h2), cell_id = c(701, 711, 721)) # Type I error
+  tribble(
+    ~cell_id, ~n_load, ~r,
+    1, 140, 1 - sesoi, # H1
+    2, 120, 0, # H2
+    3, 120, 1 - sesoi,
+    4, 140, 0,
+    5, 140, 1, # Type I error of H1
+    6, 140, delta_h2, # Type I error of H2, upper bound
+    7, 140, -delta_h2, # Type I error of H2, lower bound
+    8, 100, 1 - sesoi,
+    9, 160, 1 - sesoi,
+    10, 60, 1 - sesoi,
+    11, 200, 1 - sesoi,
+    12, 100, 0,
+    13, 160, 0,
+    14, 60, 0,
+    15, 200, 0
   ) %>%
   mutate(seed = seed_base + cell_id * 1e5, nsim = nsim)
 
@@ -55,19 +67,19 @@ table(reps$re_step) # Final random-effects structure (1 = maximal)
 
 power_conf <-
   reps %>%
-  filter(cell_id %in% 501:506) %>%
+  filter(cell_id %in% c(1, 3, 8:11)) %>%
   power_summary("sig_h1", n_load)
 
 power_conf
 
 calib <-
   reps %>%
-  filter(cell_id == 701) %>%
+  filter(cell_id == 5) %>%
   power_summary("sig_h1", n_load)
 
 calib # Type I error of H1
 
-reps_h2 <- filter(reps, cell_id %in% c(601:606, 711, 721))
+reps_h2 <- filter(reps, cell_id %in% c(2, 4, 6, 7, 12:15))
 
 se_h2 <-
   reps_h2 %>%
@@ -92,6 +104,7 @@ h2
 scores <- control_participant_scores(control_clean)
 
 es <- tibble(
+  sesoi = sesoi,
   delta_suppression_ms = sesoi * mean(scores$suppression_ms),
   delta_coefficient = sesoi * params$a
 )
@@ -135,7 +148,7 @@ count_row
 # ON2: capture in the load group ----
 # No suppression and a capture effect 10% as large as in the control group
 cell_on2 <-
-  tibble(n_load = 140, r = 0, r_capture = .1, cell_id = 801, nsim = nsim) %>%
+  tibble(n_load = 140, r = 0, r_capture = .1, cell_id = 16, nsim = nsim) %>%
   mutate(seed = seed_base + cell_id * 1e5)
 
 reps_on2 <-

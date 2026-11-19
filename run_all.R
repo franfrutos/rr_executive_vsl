@@ -28,19 +28,19 @@ run_cached("control_models", "scripts/control_models.R")
 run_cached("meta_analysis", "scripts/meta_analysis.R")
 
 # Power of the confirmatory tests and of the outcome-neutral criteria. The
-# simulation of H1 and H2 takes about 16 h on 18 cores; its replicates in
+# simulation of H1 and H2 takes about 13 h on 18 cores; its replicates in
 # output/simulations are reused
 run_cached("power", "scripts/power.R")
 
 # Sensitivity of the exploratory analyses (replicates in output/simulations)
 run_cached("sensitivity", "scripts/sensitivity.R")
 
-# Preregistered analyses (on a simulated load group until Input/load_group
+# Preregistered analyses (on simulated data of both groups until Input/online
 # contains the data). Simulated results are not reused once the data exist
 analysis_path <- "output/analysis/analysis.rds"
-load_files <- list.files("Input/load_group", pattern = "^ast_.*\\.csv$")
+data_files <- list.files("Input/online", pattern = "\\.(txt|json)$", recursive = TRUE)
 
-if (length(load_files) > 0 && file.exists(analysis_path) && readRDS(analysis_path)$simulated) {
+if (length(data_files) > 0 && file.exists(analysis_path) && readRDS(analysis_path)$simulated) {
   file.remove(analysis_path)
 }
 

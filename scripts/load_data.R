@@ -36,8 +36,14 @@ control_clean <- preprocess_search(raw_control) %>%
   dplyr::select(participant_uid, experiment, subj, block, condition, rt, log_rt,
                 log_time_end, suppression, capture)
 
-# Awareness test of Experiment 1 (the same test as in the load group): location
-# chosen as the HPDL (aw.test.2), for the participants included above
-aw_control <- read.csv2("Input/vicente_conesa_2023/data-exp-1-aw.csv") %>%
-  transmute(experiment = 1L, subj, HPDL, chosen = aw.test.2) %>%
+# Awareness test, for the participants included above: location chosen as the
+# HPDL in Experiment 1 (the same test as in the load group) and location ranked
+# first in Experiment 2
+aw_control <-
+  bind_rows(
+    read.csv2("Input/vicente_conesa_2023/data-exp-1-aw.csv") %>%
+      transmute(experiment = 1L, subj, HPDL, chosen = aw.test.2),
+    read.csv2("Input/vicente_conesa_2023/data-exp-2-aw.csv") %>%
+      transmute(experiment = 2L, subj, HPDL, chosen = aw.test.2A)
+  ) %>%
   inner_join(distinct(control_clean, experiment, subj), by = c("experiment", "subj"))

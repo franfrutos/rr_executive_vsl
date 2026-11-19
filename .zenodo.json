@@ -1,12 +1,27 @@
 {
   "upload_type": "dataset",
   "title": "Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report: Data, code, and materials",
-  "description": "<p>Data, analysis code, results, and task materials for the Stage 1 Registered Report \"Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report\". The repository includes the data of the control group (Vicente-Conesa et al., 2023), the statistics extracted for the meta-analysis, the scripts of the meta-analysis and the simulation-based power analysis, the cached results and figures, the PsychoPy task of the load group, and the Quarto source file of the manuscript. See README.md for the structure of the repository and how to reproduce the analyses.</p>",
+  "description": "<p>Data, analysis code, results, and task materials for the Stage 1 Registered Report \"Counting on Suppression: Does Learning to Ignore Distractors Depend on Executive Resources? A Registered Report\". The repository includes the data of Vicente-Conesa et al. (2023) used to plan the sample size, the statistics extracted for the meta-analysis, the scripts of the meta-analysis, the simulation-based power and sensitivity analyses, and the preregistered analyses (which run on simulated data of both groups until data collection), the cached results and figures, the online task of both groups (jsPsych), and the Quarto source file of the manuscript. See README.md for the structure of the repository and how to reproduce the analyses.</p>",
   "creators": [
     {
       "name": "Garre-Frutos, Francisco",
       "affiliation": "Autonomous University of Madrid",
       "orcid": "0000-0001-9810-186X"
+    },
+    {
+      "name": "Vadillo, Miguel A.",
+      "affiliation": "Universidad Nacional de Educación a Distancia (UNED)",
+      "orcid": "0000-0001-8421-816X"
+    },
+    {
+      "name": "Shanks, David R.",
+      "affiliation": "University College London",
+      "orcid": "0000-0002-4600-6323"
+    },
+    {
+      "name": "Vicente-Conesa, Francisco",
+      "affiliation": "University of Castilla-La Mancha",
+      "orcid": "0000-0002-6570-4901"
     }
   ],
   "keywords": [

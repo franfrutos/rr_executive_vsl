@@ -1,0 +1,152 @@
+/* White background, as in the original program */
+body {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+.inst {
+    max-width: 80%;
+    margin: auto;
+}
+
+.inst > p {
+    font-size: 1.1rem;
+}
+
+.inst > #item {
+    margin: 30px auto;
+}
+
+.inst > ol {
+    text-align: left;
+}
+
+.inst > ol > li {
+    padding-left: 10px;
+    margin-left: 20%;
+}
+
+/* Grey hints at the bottom of the screens (example number, keys) */
+.hint {
+    color: #595959;
+    font-size: 0.95rem !important;
+}
+
+/* Error feedback and verification of the counting task */
+.feedback {
+    font-family: 'Times New Roman', Times, serif;
+}
+
+.verify-number {
+    font-size: 5rem;
+    font-weight: bold;
+    margin: 1rem 0;
+}
+
+/* Response keys page */
+.keys {
+    display: flex;
+    justify-content: center;
+    gap: 120px;
+    margin: 30px 0;
+}
+
+.keycap {
+    display: inline-block;
+    min-width: 48px;
+    padding: 6px 10px;
+    border: 2px solid #595959;
+    border-radius: 6px;
+    background-color: #EBEBEB;
+    font-size: 1.6rem;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+/* Options chosen with the number keys (awareness test) */
+.options {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 30px 0;
+}
+
+.option {
+    width: 150px;
+    padding: 12px 6px;
+    border: 2px solid #595959;
+    background-color: #FFFFFF;
+}
+
+.option.selected {
+    border-color: #0000FF;
+    background-color: #D9E6FF;
+}
+
+.option > .number {
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+/* Post-experiment questions. Modified from: https://codepen.io/mr-t77/pen/jRzmMZ */
+#form .statement {
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+#form .likert {
+    list-style: none;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 35px;
+    display: block;
+    border-bottom: 2px solid #efefef;
+}
+
+#form .likert:last-of-type {
+    border-bottom: 0;
+}
+
+#form .likert:before {
+    content: '';
+    position: relative;
+    top: 11px;
+    left: 11%;
+    display: block;
+    background-color: #efefef;
+    height: 4px;
+    width: 78%;
+}
+
+#form .likert li {
+    display: inline-block;
+    width: 19%;
+    text-align: center;
+    vertical-align: top;
+}
+
+#form .likert li input[type=radio] {
+    display: block;
+    position: relative;
+    top: 0;
+    left: 50%;
+    margin-left: -6px;
+}
+
+#form .likert li label {
+    width: 100%;
+}
+
+li > label {
+    font-size: 14px;
+}
+
+textarea {
+    display: block;
+    margin: 20px auto;
+    outline: none;
+    resize: none;
+    padding: 10px;
+}

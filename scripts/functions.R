@@ -76,24 +76,39 @@ min_correct <- function(n, alpha) {
   qbinom(1 - alpha, n, .5) + 1
 }
 
-# Simulated load group in the format of the task, to run analysis.R before the
-# data are collected: new participants from the control model with time, with
-# suppression attenuated as in H1 (r = .8) and no effect of the load on awareness
-simulate_load_group <- function(params, aw_ctrl, raw_control, n = 160, r = .8, count_acc = .85) {
-  set.seed(20261105)
+# Data of the task ----
+# Rows saved by the online task (Materials/jspsych_task), as exported from JATOS:
+# one JSON array per session and line. Only the columns used by analysis.R are
+# kept
+task_columns <- c("participant", "group", "hpdl", "phase", "block", "trial_in_block", "condition",
+                  "correct", "timed_out", "rt_ms", "verify_correct", "aware_attempt", "aware_r2")
+
+read_task_data <- function(files) {
+  sessions <- unlist(lapply(files, readLines, warn = FALSE, encoding = "UTF-8"))
+  bind_rows(lapply(sessions[nzchar(trimws(sessions))], function(s) {
+    d <- jsonlite::fromJSON(s)
+    d <- d[intersect(task_columns, names(d))]
+    mutate(d, across(everything(), as.character))
+  })) %>%
+    type.convert(as.is = TRUE)
+}
+
+# Simulated data of both groups in the format of the task, to run analysis.R
+# before the data are collected. Participants are drawn from the control model
+# with time; in the load group, the suppression effect is multiplied by r_supp and
+# the mean awareness gradient by r_aware. Each participant has a search accuracy
+# and, in the load group, a verification accuracy drawn at random
+simulate_task_data <- function(params, aw_ctrl, r_supp, r_aware, n = 160) {
+  set.seed(20261119)
   cm <- condition_contrasts()
   b <- params$beta
-  re <- MASS::mvrnorm(n, mu = rep(0, ncol(params$Sigma_re)), Sigma = params$Sigma_re)
+  group <- rep(c("control", "load"), each = n)
+  re <- MASS::mvrnorm(2 * n, mu = rep(0, ncol(params$Sigma_re)), Sigma = params$Sigma_re)
 
-  search_acc <-
-    raw_control %>%
-    group_by(participant_uid, condition) %>%
-    summarise(acc = mean(correct), .groups = "drop") %>%
-    pivot_wider(names_from = condition, values_from = acc)
-
-  bind_rows(lapply(seq_len(n), function(i) {
+  bind_rows(lapply(seq_along(group), function(i) {
+    load <- group[i] == "load"
     hpdl <- sample(1:8, 1)
-    acc <- search_acc[sample(nrow(search_acc), 1), ]
+    search_acc <- rbeta(1, 40, 2)
 
     trials <-
       tibble(
@@ -108,30 +123,34 @@ simulate_load_group <- function(params, aw_ctrl, raw_control, n = 160, r = .8, c
         rt = exp(
           b[["(Intercept)"]] + re[i, "(Intercept)"] +
             (b[["log_time_end"]] + re[i, "log_time_end"]) * time +
-            (r * (params$a + params$s * time) + re[i, "suppression"]) * suppression +
+            (ifelse(load, r_supp, 1) * (params$a + params$s * time) + re[i, "suppression"]) * suppression +
             (b[["conditioncapture"]] + b[["conditioncapture:log_time_end"]] * time + re[i, "capture"]) * capture +
             rnorm(n(), 0, params$sigma)
         ),
-        correct = rbinom(n(), 1, unlist(acc[condition])),
-        correct = ifelse(rt > 3000, 0L, correct), # Time-outs
-        rt_ms = ifelse(rt > 3000, NA, rt),
-        participant = i,
+        timed_out = as.integer(rt > 3000),
+        correct = ifelse(timed_out == 1, 0L, rbinom(n(), 1, search_acc)),
+        rt_ms = ifelse(timed_out == 1, NA, round(rt, 1)),
         phase = "experimental"
       ) %>%
-      dplyr::select(participant, phase, block, trial_in_block, condition, correct, rt_ms)
+      dplyr::select(phase, block, trial_in_block, condition, correct, timed_out, rt_ms)
 
     verification <-
-      tibble(participant = i, phase = "verification", verify_correct = rbinom(72, 1, count_acc))
+      if (load) tibble(phase = "verification", block = rep(1:6, each = 12), verify_correct = rbinom(72, 1, rbeta(1, 17, 3)))
 
-    lambda <- rnorm(1, aw_ctrl$mu, aw_ctrl$sd)
-    p_location <- exp(-lambda * circ_dist(1:8, hpdl))
-
+    lambda <- rnorm(1, ifelse(load, r_aware, 1) * aw_ctrl$mu, aw_ctrl$sd)
     awareness <-
-      tibble(participant = i, phase = "awareness", aware_r2 = sample(1:8, 1, prob = p_location))
+      tibble(phase = "awareness", aware_attempt = 1L,
+             aware_r2 = sample(1:8, 1, prob = exp(-lambda * circ_dist(1:8, hpdl))))
 
     bind_rows(trials, verification, awareness) %>%
-      mutate(hpdl = hpdl)
+      mutate(participant = sprintf("sim%03d", i), group = group[i], hpdl = hpdl, .before = 1)
   }))
+}
+
+# The sessions as a JATOS result file: one JSON array per line (missing values
+# are left out of each row, as in the task)
+write_task_data <- function(sessions, file) {
+  writeLines(vapply(split(sessions, sessions$participant), function(d) as.character(jsonlite::toJSON(d)), ""), file)
 }
 
 # Scores of each control participant, to express the simulated effects in ms.
@@ -300,16 +319,15 @@ re_design <- function(d, re_names) {
   do.call(cbind, cols[re_names])
 }
 
-# Data of both groups from the control model. The suppression effect of the load
-# group is multiplied by r and its capture effect by r_capture. load_ids keeps
-# the design of a cell fixed across replicates
-simulate_power_data <- function(params, skeletons, n_load, r, load_ids = NULL, r_capture = 1) {
-  ctrl_ids <- names(skeletons)
-  if (is.null(load_ids)) load_ids <- sample(ctrl_ids, n_load, replace = TRUE)
-  ids <- c(ctrl_ids, load_ids)
-  n_c <- length(ctrl_ids)
-  uid <- c(sprintf("C%03d", seq_len(n_c)), sprintf("L%03d", seq_len(n_load)))
-  is_load_p <- rep(c(FALSE, TRUE), c(n_c, n_load))
+# Data of two groups of n_load participants from the control model, with the
+# trials of control participants drawn at random. The suppression effect of the
+# load group is multiplied by r and its capture effect by r_capture. design_ids
+# (control group first) keeps the design of a cell fixed across replicates
+simulate_power_data <- function(params, skeletons, n_load, r, design_ids = NULL, r_capture = 1) {
+  if (is.null(design_ids)) design_ids <- sample(names(skeletons), 2 * n_load, replace = TRUE)
+  ids <- design_ids
+  uid <- c(sprintf("C%03d", seq_len(n_load)), sprintf("L%03d", seq_len(n_load)))
+  is_load_p <- rep(c(FALSE, TRUE), c(n_load, n_load))
 
   n_i <- vapply(skeletons[ids], nrow, integer(1))
   d <- do.call(rbind, unname(skeletons[ids]))
@@ -332,7 +350,7 @@ simulate_power_data <- function(params, skeletons, n_load, r, load_ids = NULL, r
   idx <- rep(seq_along(uid), n_i)
 
   d$log_rt <- eta + rowSums(Z * B[idx, , drop = FALSE]) + rnorm(nrow(d), 0, params$sigma)
-  attr(d, "load_ids") <- load_ids
+  attr(d, "design_ids") <- design_ids
   d
 }
 
@@ -480,15 +498,15 @@ run_power_rep_lmer <- function(i, cell, params, skeletons, delta, time = FALSE) 
     f_max <- as.formula(paste(fixed, "+", re_steps[[if (time) "time" else "no_time"]][[1]]))
     fit0 <- suppressWarnings(suppressMessages(
       lme4::lmer(f_max, data = d0, REML = FALSE, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5)))))
-    assign(".base_fit", list(key = key, fit = fit0, load_ids = attr(d0, "load_ids")), envir = .GlobalEnv)
+    assign(".base_fit", list(key = key, fit = fit0, design_ids = attr(d0, "design_ids")), envir = .GlobalEnv)
   }
   b <- get(".base_fit", envir = .GlobalEnv)
   set.seed(cell$seed + i)
-  dat <- simulate_power_data(params, skeletons, n_load = cell$n_load, r = cell$r, load_ids = b$load_ids,
+  dat <- simulate_power_data(params, skeletons, n_load = cell$n_load, r = cell$r, design_ids = b$design_ids,
                              r_capture = r_capture)
   res <- fit_power_rep_lmer(dat, delta, time = time, base = b$fit)
   bind_cols(as_tibble(cell[c("cell_id", "n_load", "r")]),
-            tibble(rep = i, seed = cell$seed + i, usable = is.na(res$error), n_control = length(skeletons)), res)
+            tibble(rep = i, seed = cell$seed + i, usable = is.na(res$error)), res)
 }
 
 # Replicates of every cell in parallel, appended to `path` after each cell, so
@@ -499,7 +517,7 @@ run_cells <- function(cells, path, params, skeletons, delta, n_cores, time = FAL
     cell <- as.list(cells[j, ])
     todo <- setdiff(seq_len(cell$nsim), done$rep[done$cell_id == cell$cell_id])
     if (length(todo) == 0) next
-    message(sprintf("[%s] cell %d: n_load = %d, r = %g, %d replicates", format(Sys.time(), "%H:%M:%S"),
+    message(sprintf("[%s] cell %d: n per group = %d, r = %g, %d replicates", format(Sys.time(), "%H:%M:%S"),
                     cell$cell_id, cell$n_load, cell$r, length(todo)))
     cl <- parallel::makeCluster(n_cores)
     invisible(parallel::clusterCall(cl, setwd, getwd()))
@@ -508,11 +526,18 @@ run_cells <- function(cells, path, params, skeletons, delta, n_cores, time = FAL
       options(marginaleffects_safe = FALSE)
       NULL
     }))
+    # A replicate whose analysis fails is kept as unusable (a non-rejection in
+    # power_summary()), with its error message
     reps <- parallel::parLapplyLB(cl, todo, function(i, cell, params, skeletons, delta, time) {
-      run_power_rep_lmer(i, cell, params, skeletons, delta, time = time)
+      tryCatch(run_power_rep_lmer(i, cell, params, skeletons, delta, time = time), error = function(e) {
+        tibble(cell_id = cell$cell_id, n_load = cell$n_load, r = cell$r, rep = i, seed = cell$seed + i,
+               usable = FALSE, error = gsub("[\r\n]+", " ", conditionMessage(e)))
+      })
     }, cell = cell, params = params, skeletons = skeletons, delta = delta, time = time)
     parallel::stopCluster(cl)
-    write.table(bind_rows(reps), path, sep = ",", row.names = FALSE, col.names = !file.exists(path), append = file.exists(path))
+    out <- bind_rows(reps)
+    if (file.exists(path)) out <- out[names(read.csv(path, nrows = 1))] # the column order of the file
+    write.table(out, path, sep = ",", row.names = FALSE, col.names = !file.exists(path), append = file.exists(path))
   }
   read.csv(path)
 }
@@ -636,14 +661,15 @@ fit_glmmtmb <- function(dat, group = FALSE) {
   out
 }
 
-# One replicate of the sensitivity of the awareness model
+# One replicate of the sensitivity of the awareness model: two groups of n_load
+# participants, generated from the model fitted to the control data
 run_awareness_rep <- function(i, cell, aw_ctrl, n_load) {
   set.seed(cell$seed + i)
   n <- cbind(
-    simulate_counts(aw_ctrl$n, aw_ctrl$mu, aw_ctrl$sd),
+    simulate_counts(n_load, aw_ctrl$mu, aw_ctrl$sd),
     simulate_counts(n_load, (1 - cell$attenuation) * aw_ctrl$mu, aw_ctrl$sd)
   )
-  dat <- choice_sets(c(counts_to_dl(n[, 1]), counts_to_dl(n[, 2])), rep(c(-.5, .5), c(aw_ctrl$n, n_load)))
+  dat <- choice_sets(c(counts_to_dl(n[, 1]), counts_to_dl(n[, 2])), rep(c(-.5, .5), c(n_load, n_load)))
   f <- tryCatch(fit_glmmtmb(dat, group = TRUE), error = function(e) NULL)
   ok <- !is.null(f)
   tibble(
